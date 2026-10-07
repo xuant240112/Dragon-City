@@ -1,0 +1,347 @@
+import random
+import tkinter as tk
+from tkinter import messagebox
+
+
+class Dragon:
+
+    def __init__(self, name="Inferno", health=100):
+        self.name = name
+        self.max_health = health
+        self.health = health
+        self.score = 0
+
+    def take_damage(self, damage):
+        self.health = max(0, self.health - damage)
+
+    def heal(self, amount):
+        self.health = min(self.max_health, self.health + amount)
+
+    def add_score(self, points):
+        self.score += points
+
+
+class GameObject:
+
+    def __init__(self, symbol, name):
+        self.symbol = symbol
+        self.name = name
+
+
+class Enemy(GameObject):
+
+    def __init__(self, name="Goblin", damage=20):
+        super().__init__("E", name)
+        self.damage = damage
+
+
+class Treasure(GameObject):
+
+    def __init__(self, value=100):
+        super().__init__("T", "Treasure")
+        self.value = value
+
+
+class PowerUp(GameObject):
+
+    def __init__(self, heal_amount=20):
+        super().__init__("P", "Power-Up")
+        self.heal_amount = heal_amount
+
+
+class DragonCityGUI:
+
+    def __init__(self, root, grid_size=5):
+        self.root = root
+        self.root.title("DRAGON CITY - Defend. Explore. Survive.")
+        self.root.configure(bg="#0f111a")
+        self.grid_size = grid_size
+
+        self.player = Dragon("Inferno")
+        self.player_pos = [0, 0]
+        self.grid_buttons = {}
+        self.city_map = []
+
+        self.setup_ui()
+        self.start_new_game()
+
+    def setup_ui(self):
+        title = tk.Label(
+            self.root,
+            text="DRAGON CITY",
+            font=("Helvetica", 24, "bold"),
+            fg="#ffffff",
+            bg="#0f111a",
+        )
+        title.pack(pady=10)
+
+        main_frame = tk.Frame(self.root, bg="#0f111a")
+        main_frame.pack(padx=20, pady=10)
+
+        self.map_frame = tk.Frame(
+            main_frame, bg="#1a1c29", bd=2, relief="solid"
+        )
+        self.map_frame.grid(row=0, column=0, padx=15, pady=10)
+
+        dash_frame = tk.Frame(main_frame, bg="#0f111a")
+        dash_frame.grid(row=0, column=1, padx=15, pady=10, sticky="n")
+
+        self.lbl_health = tk.Label(
+            dash_frame,
+            text=f"Health: {self.player.health}",
+            font=("Helvetica", 14, "bold"),
+            fg="#4caf50",
+            bg="#0f111a",
+        )
+        self.lbl_health.pack(anchor="w", pady=5)
+
+        self.lbl_score = tk.Label(
+            dash_frame,
+            text=f"Score: {self.player.score}",
+            font=("Helvetica", 14, "bold"),
+            fg="#ffb74d",
+            bg="#0f111a",
+        )
+        self.lbl_score.pack(anchor="w", pady=5)
+
+        pad_frame = tk.Frame(dash_frame, bg="#0f111a")
+        pad_frame.pack(pady=20)
+
+        btn_up = tk.Button(
+            pad_frame,
+            text="↑",
+            width=5,
+            height=2,
+            font=("Helvetica", 12, "bold"),
+            bg="#2a2d3d",
+            fg="white",
+            command=lambda: self.move(-1, 0),
+        )
+        btn_up.grid(row=0, column=1, pady=2)
+
+        btn_left = tk.Button(
+            pad_frame,
+            text="←",
+            width=5,
+            height=2,
+            font=("Helvetica", 12, "bold"),
+            bg="#2a2d3d",
+            fg="white",
+            command=lambda: self.move(0, -1),
+        )
+        btn_left.grid(row=1, column=0, padx=2)
+
+        btn_down = tk.Button(
+            pad_frame,
+            text="↓",
+            width=5,
+            height=2,
+            font=("Helvetica", 12, "bold"),
+            bg="#2a2d3d",
+            fg="white",
+            command=lambda: self.move(1, 0),
+        )
+        btn_down.grid(row=1, column=1, pady=2)
+
+        btn_right = tk.Button(
+            pad_frame,
+            text="→",
+            width=5,
+            height=2,
+            font=("Helvetica", 12, "bold"),
+            bg="#2a2d3d",
+            fg="white",
+            command=lambda: self.move(0, 1),
+        )
+        btn_right.grid(row=1, column=2, padx=2)
+
+        self.lbl_status = tk.Label(
+            dash_frame,
+            text="Reach the Safe Zone (S) to win!",
+            font=("Helvetica", 11, "italic"),
+            fg="#64b5f6",
+            bg="#0f111a",
+            wraplength=200,
+        )
+        self.lbl_status.pack(pady=10)
+
+        self.root.bind("<Up>", lambda event: self.move(-1, 0))
+        self.root.bind("<Down>", lambda event: self.move(1, 0))
+        self.root.bind("<Left>", lambda event: self.move(0, -1))
+        self.root.bind("<Right>", lambda event: self.move(0, 1))
+        self.root.bind("<w>", lambda event: self.move(-1, 0))
+        self.root.bind("<s>", lambda event: self.move(1, 0))
+        self.root.bind("<a>", lambda event: self.move(0, -1))
+        self.root.bind("<d>", lambda event: self.move(0, 1))
+
+    def start_new_game(self):
+        self.player = Dragon("Inferno")
+        self.player_pos = [0, 0]
+
+        self.city_map = [
+            ["." for _ in range(self.grid_size)] for _ in range(self.grid_size)
+        ]
+        self.city_map[0][0] = "D"
+        self.city_map[self.grid_size - 1][self.grid_size - 1] = "S"
+
+        elements = (
+            [Enemy() for _ in range(3)]
+            + [Treasure() for _ in range(2)]
+            + [PowerUp() for _ in range(2)]
+        )
+        available_coords = [
+            (r, c)
+            for r in range(self.grid_size)
+            for c in range(self.grid_size)
+            if (r, c) != (0, 0)
+            and (r, c) != (self.grid_size - 1, self.grid_size - 1)
+        ]
+
+        random.shuffle(available_coords)
+        for obj in elements:
+            r, c = available_coords.pop()
+            self.city_map[r][c] = obj
+
+        self.render_map()
+        self.update_stats()
+
+    def render_map(self):
+        for r in range(self.grid_size):
+            for c in range(self.grid_size):
+                cell = self.city_map[r][c]
+                symbol = cell.symbol if isinstance(cell, GameObject) else cell
+
+                color_map = {
+                    "D": ("#2e7d32", "D"),
+                    "E": ("#c62828", "E"),
+                    "T": ("#f57f17", "T"),
+                    "P": ("#6a1b9a", "P"),
+                    "S": ("#0288d1", "S"),
+                    ".": ("#1e2238", "·"),
+                }
+
+                bg_color, text = color_map.get(symbol, ("#1e2238", "."))
+
+                if (r, c) not in self.grid_buttons:
+                    btn = tk.Label(
+                        self.map_frame,
+                        text=text,
+                        font=("Helvetica", 14, "bold"),
+                        width=4,
+                        height=2,
+                        bg=bg_color,
+                        fg="white",
+                        relief="ridge",
+                    )
+                    btn.grid(row=r, column=c, padx=3, pady=3)
+                    self.grid_buttons[(r, c)] = btn
+                else:
+                    self.grid_buttons[(r, c)].config(bg=bg_color, text=text)
+
+    def move_enemies(self):
+        """Finds all enemies and moves them 1 tile closer to the Dragon."""
+        enemy_positions = []
+        for r in range(self.grid_size):
+            for c in range(self.grid_size):
+                if isinstance(self.city_map[r][c], Enemy):
+                    enemy_positions.append((r, c))
+
+        pr, pc = self.player_pos
+
+        for r, c in enemy_positions:
+            enemy_obj = self.city_map[r][c]
+
+            # Calculate movement direction toward player
+            dr = 0
+            dc = 0
+
+            if pr < r:
+                dr = -1
+            elif pr > r:
+                dr = 1
+            elif pc < c:
+                dc = -1
+            elif pc > c:
+                dc = 1
+
+            new_r, new_c = r + dr, c + dc
+
+            # Move enemy if target square is empty or has player
+            target = self.city_map[new_r][new_c]
+
+            if (new_r, new_c) == (pr, pc):
+                # Enemy catches player during its turn
+                self.player.take_damage(enemy_obj.damage)
+                self.lbl_status.config(
+                    text=f"An enemy attacked you! -{enemy_obj.damage} HP!",
+                    fg="#ef5350",
+                )
+            elif target == ".":
+                # Move to empty tile
+                self.city_map[r][c] = "."
+                self.city_map[new_r][new_c] = enemy_obj
+
+    def move(self, dr, dc):
+        new_r = self.player_pos[0] + dr
+        new_c = self.player_pos[1] + dc
+
+        if not (0 <= new_r < self.grid_size and 0 <= new_c < self.grid_size):
+            self.lbl_status.config(
+                text="Blocked! You cannot leave Dragon City.", fg="#ffb74d"
+            )
+            return
+
+        self.city_map[self.player_pos[0]][self.player_pos[1]] = "."
+
+        target = self.city_map[new_r][new_c]
+        if isinstance(target, Enemy):
+            self.player.take_damage(target.damage)
+            self.lbl_status.config(
+                text=f"Ambushed! Lost {target.damage} HP!", fg="#ef5350"
+            )
+        elif isinstance(target, Treasure):
+            self.player.add_score(target.value)
+            self.lbl_status.config(
+                text=f"Treasure found! +{target.value} Score!", fg="#ffd54f"
+            )
+        elif isinstance(target, PowerUp):
+            self.player.heal(target.heal_amount)
+            self.lbl_status.config(
+                text=f"Power-up! Healed +{target.heal_amount} HP!", fg="#81c784"
+            )
+        elif target == "S":
+            self.player_pos = [new_r, new_c]
+            self.city_map[new_r][new_c] = "D"
+            self.render_map()
+            self.update_stats()
+            messagebox.showinfo(
+                "VICTORY",
+                f"You reached the Safe Zone!\nFinal Score: {self.player.score}",
+            )
+            self.start_new_game()
+            return
+
+        self.player_pos = [new_r, new_c]
+        self.city_map[new_r][new_c] = "D"
+
+        # Trigger Enemy AI movement step
+        self.move_enemies()
+
+        self.render_map()
+        self.update_stats()
+
+        if self.player.health <= 0:
+            messagebox.showerror(
+                "DEFEAT", "Your dragon has fallen in combat!"
+            )
+            self.start_new_game()
+
+    def update_stats(self):
+        self.lbl_health.config(text=f"Health: {self.player.health}")
+        self.lbl_score.config(text=f"Score: {self.player.score}")
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = DragonCityGUI(root)
+    root.mainloop()
